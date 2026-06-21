@@ -851,6 +851,9 @@ function applySettingsOnLoad() {
   applyThemeAndText();
   if ("serviceWorker" in navigator && !isCapacitorNative()) {
     navigator.serviceWorker.register("./sw.js").catch(() => {});
+    navigator.serviceWorker.addEventListener("controllerchange", () => {
+      window.location.reload();
+    });
   }
 }
 
