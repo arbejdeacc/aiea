@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="da">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex" />
+  <title>Mor Kalender — Jari admin</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="admin.css" />
+</head>
+<body class="admin-body">
+  <div class="admin-shell">
+    <header class="admin-header">
+      <h1>Mor Kalender — administration</h1>
+      <p class="admin-sub">For Jari: se og ret Mors aftaler i browseren.</p>
+    </header>
+
+    <section id="pinGate" class="admin-card">
+      <h2>Log ind med PIN</h2>
+      <p class="muted">PIN sættes i sync-config.js (adminPin / pcServerPin) eller på PC-serveren.</p>
+      <form id="pinForm" class="admin-pin-form">
+        <label>
+          <span>PIN</span>
+          <input type="password" id="pinInput" inputmode="numeric" autocomplete="off" />
+        </label>
+        <button type="submit" class="primary-button">Åbn dashboard</button>
+      </form>
+      <p id="pinError" class="form-error" hidden role="alert"></p>
+    </section>
+
+    <div id="adminDashboard" hidden>
+      <section class="admin-toolbar admin-card">
+        <div class="admin-meta">
+          <p><strong>Husstand:</strong> <span id="householdLabel">—</span></p>
+          <p><strong>Sidste synk:</strong> <span id="lastSyncLabel">—</span></p>
+          <p><strong>Status:</strong> <span id="syncStatusLabel">—</span></p>
+        </div>
+        <div class="admin-actions">
+          <button type="button" id="refreshBtn" class="secondary-button">Opdater fra server</button>
+          <button type="button" id="logoutBtn" class="secondary-button">Lås</button>
+        </div>
+      </section>
+
+      <section class="admin-card">
+        <h2>Kalenderoversigt</h2>
+        <div class="admin-calendar-head">
+          <button type="button" id="adminPrevMonth" class="icon-button" aria-label="Forrige måned">‹</button>
+          <h3 id="adminMonthTitle">Måned</h3>
+          <button type="button" id="adminNextMonth" class="icon-button" aria-label="Næste måned">›</button>
+        </div>
+        <div class="weekdays admin-weekdays" aria-hidden="true">
+          <span>Man</span><span>Tir</span><span>Ons</span><span>Tor</span><span>Fre</span><span>Lør</span><span>Søn</span>
+        </div>
+        <div id="adminCalendarGrid" class="calendar-grid admin-calendar-grid" role="grid"></div>
+      </section>
+
+      <section class="admin-card">
+        <div class="admin-list-head">
+          <h2>Alle aftaler</h2>
+          <button type="button" id="addAdminBtn" class="primary-button">Ny aftale</button>
+        </div>
+        <div class="admin-table-wrap">
+          <table class="admin-table" id="appointmentsTable">
+            <thead>
+              <tr>
+                <th>Dato</th>
+                <th>Tid</th>
+                <th>Titel</th>
+                <th>Note</th>
+                <th>Påmindelse</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="appointmentsBody"></tbody>
+          </table>
+        </div>
+        <p id="emptyAdmin" class="muted" hidden>Ingen aftaler endnu.</p>
+      </section>
+    </div>
+
+    <dialog id="editDialog" class="admin-dialog">
+      <form id="adminEditForm" method="dialog">
+        <h3 id="dialogTitle">Aftale</h3>
+        <input type="hidden" id="adminEditId" />
+        <label>
+          <span>Titel</span>
+          <input id="adminTitle" required />
+        </label>
+        <label>
+          <span>Dato</span>
+          <input id="adminDate" type="date" required />
+        </label>
+        <label>
+          <span>Tid</span>
+          <input id="adminTime" type="time" required />
+        </label>
+        <label>
+          <span>Note</span>
+          <textarea id="adminNote"></textarea>
+        </label>
+        <label>
+          <span>Påmindelse</span>
+          <input id="adminReminder" />
+        </label>
+        <div class="admin-dialog-actions">
+          <button type="submit" class="primary-button">Gem</button>
+          <button type="button" id="dialogCancel" class="secondary-button">Annuller</button>
+        </div>
+      </form>
+    </dialog>
+  </div>
+
+  <script src="config/config.js"></script>
+  <script src="config/sync-config.js"></script>
+  <script src="js/utils.js"></script>
+  <script src="js/storage.js"></script>
+  <script src="js/sync.js"></script>
+  <script src="js/admin.js"></script>
+</body>
+</html>

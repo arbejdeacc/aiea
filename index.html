@@ -1,0 +1,326 @@
+<!doctype html>
+<html lang="da">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0a0a0f" />
+  <meta name="description" content="Aiea – Alt i en App. Kalender, vejr, el-pris og beskeder." />
+  <title>Aiea – Alt i en App</title>
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="icon" href="icons/icon-192.png" type="image/png" />
+  <link rel="apple-touch-icon" href="icons/icon-192.png" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="phone-shell">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-icon" aria-hidden="true">♡</div>
+        <div>
+          <h1 id="brandTitle">Aiea</h1>
+          <p id="todayLine">Din dag i dag</p>
+        </div>
+      </div>
+    </header>
+
+    <button type="button" id="notificationBanner" class="notification-banner" hidden
+      aria-label="Slå notifikationer til">
+      Notifikationer er ikke slået til. Tryk her for at slå dem til.
+    </button>
+
+    <main id="app" class="app" aria-live="polite"></main>
+
+    <nav class="bottom-nav" aria-label="Navigation">
+      <button type="button" data-route="home" class="nav-btn active">⌂<span>Hjem</span></button>
+      <button type="button" data-route="vejr" class="nav-btn">⛅<span>Vejr/El</span></button>
+      <button type="button" data-route="calendar" class="nav-btn">▦<span>Kalender</span></button>
+      <button type="button" data-route="add" class="nav-btn nav-add">＋<span>Tilføj</span></button>
+    </nav>
+  </div>
+
+  <template id="home-template">
+    <section class="hero-card">
+      <div>
+        <p class="eyebrow">I dag</p>
+        <h2 id="homeDate">Torsdag</h2>
+      </div>
+      <div class="flower" aria-hidden="true">✿</div>
+    </section>
+
+    <div id="homeWeatherMini" class="vejr-mini" role="region" aria-label="Vejr nu">
+      <div class="vejr-mini-loading muted small">Henter vejr...</div>
+    </div>
+
+    <div id="homeElBadge" class="home-el-badge" hidden aria-label="El-pris nu">
+      <span aria-hidden="true">⚡</span>
+      <span>El nu:</span>
+      <span id="homeElPrice" class="home-el-price">–</span>
+      <span id="homeElRating" class="home-el-rating--normal"></span>
+    </div>
+
+    <section class="section-title-row">
+      <h3>Dagens aftaler</h3>
+    </section>
+    <div id="todayAppointments" class="list"></div>
+
+    <section class="quick-grid quick-grid-2col" aria-label="Hovedknapper">
+      <button type="button" class="quick-card pink" data-route="add">
+        <span class="quick-icon" aria-hidden="true">＋</span>
+        <strong>Tilføj aftale</strong>
+      </button>
+      <button type="button" class="quick-card teal" data-route="calendar">
+        <span class="quick-icon" aria-hidden="true">▦</span>
+        <strong>Kalender</strong>
+      </button>
+<button type="button" class="quick-card green" data-route="vejr">
+        <span class="quick-icon" aria-hidden="true">⛅</span>
+        <strong>Vejr & El</strong>
+      </button>
+    </section>
+  </template>
+
+  <template id="add-template">
+    <section class="page-header">
+      <button type="button" class="back-button" data-route="home">← Tilbage</button>
+      <h2>Tilføj aftale</h2>
+      <p>Udfyld felterne og tryk Gem.</p>
+    </section>
+
+    <form id="appointmentForm" class="form-card" novalidate>
+      <label>
+        <span>Hvad skal jeg minde dig om?</span>
+        <input id="titleInput" name="title" placeholder="Skriv her, hvad jeg skal minde dig om" autocomplete="off" />
+      </label>
+
+      <label>
+        <span>Dato</span>
+        <input id="dateInput" name="date" type="date" />
+      </label>
+
+      <label>
+        <span>Klokkeslæt</span>
+        <input id="timeInput" name="time" type="time" />
+      </label>
+
+      <label>
+        <span>Sted / note (valgfri)</span>
+        <textarea id="noteInput" name="note" placeholder="Fx adresse eller lille note"></textarea>
+      </label>
+
+      <button class="primary-button" type="submit">Gem aftale</button>
+    </form>
+  </template>
+
+  <template id="edit-template">
+    <section class="page-header">
+      <button type="button" class="back-button" data-route="home">← Tilbage</button>
+      <h2>Ret aftale</h2>
+      <p>Ændr og gem igen.</p>
+    </section>
+
+    <form id="editAppointmentForm" class="form-card" novalidate>
+      <label>
+        <span>Hvad skal du?</span>
+        <input id="editTitleInput" name="title" autocomplete="off" />
+      </label>
+      <label>
+        <span>Dato</span>
+        <input id="editDateInput" name="date" type="date" />
+      </label>
+      <label>
+        <span>Tid</span>
+        <input id="editTimeInput" name="time" type="time" />
+      </label>
+      <label>
+        <span>Sted / note (valgfri)</span>
+        <textarea id="editNoteInput" name="note"></textarea>
+      </label>
+      <button class="primary-button" type="submit">Gem ændringer</button>
+      <button type="button" class="secondary-button" id="editCancelButton">Annuller</button>
+    </form>
+  </template>
+
+  <template id="detail-template">
+    <section class="page-header">
+      <button type="button" class="back-button" data-route="home">← Tilbage</button>
+      <h2>Aftale</h2>
+    </section>
+
+    <section class="detail-card">
+      <h3 id="detailTitle" class="detail-title">Titel</h3>
+      <div class="detail-row">
+        <span class="detail-label">Dato</span>
+        <span id="detailDate"></span>
+      </div>
+      <div class="detail-row">
+        <span class="detail-label">Tid</span>
+        <span id="detailTime"></span>
+      </div>
+      <div class="detail-block">
+        <span class="detail-label">Sted / note</span>
+        <p id="detailNote"></p>
+      </div>
+      <div class="detail-block">
+        <span class="detail-label">Påmindelse</span>
+        <p id="detailNotifyReminder"></p>
+      </div>
+      <div class="detail-block">
+        <span class="detail-label">Husketekst</span>
+        <p id="detailReminder"></p>
+      </div>
+      <div class="detail-actions">
+        <button type="button" class="primary-button" id="detailEditButton">Ret</button>
+        <button type="button" class="danger-button" id="detailDeleteButton">Slet</button>
+      </div>
+    </section>
+  </template>
+
+  <template id="calendar-template">
+    <section class="page-header">
+      <button type="button" class="back-button" data-route="home">← Tilbage</button>
+      <h2>Kalender</h2>
+      <p>Tryk på en dato. Prik = der er aftaler.</p>
+    </section>
+
+    <section class="calendar-card">
+      <div class="calendar-head">
+        <button type="button" id="prevMonth" class="icon-button" aria-label="Forrige måned">‹</button>
+        <h3 id="monthTitle">Måned</h3>
+        <button type="button" id="nextMonth" class="icon-button" aria-label="Næste måned">›</button>
+      </div>
+      <div class="weekdays" aria-hidden="true">
+        <span>Man</span><span>Tir</span><span>Ons</span><span>Tor</span><span>Fre</span><span>Lør</span><span>Søn</span>
+      </div>
+      <div id="calendarGrid" class="calendar-grid" role="grid" aria-label="Månedskalender"></div>
+    </section>
+
+    <section>
+      <h3 id="selectedDayTitle">Valgt dag</h3>
+      <div id="selectedDayList" class="list"></div>
+    </section>
+  </template>
+
+
+  <template id="settings-template">
+    <section class="page-header">
+      <button type="button" class="back-button" data-route="home">← Tilbage</button>
+      <h2>Indstillinger</h2>
+      <p>Enkle valg til Mor.</p>
+    </section>
+
+    <section class="settings-card">
+      <label class="toggle-row">
+        <span>Stor tekst</span>
+        <input type="checkbox" id="largeTextToggle" />
+      </label>
+
+      <label class="select-row">
+        <span>Tema</span>
+        <select id="themeSelect">
+          <option value="dark">Mørkt (standard)</option>
+          <option value="light">Lyst</option>
+          <option value="contrast">Kontrast</option>
+        </select>
+      </label>
+
+      <button type="button" id="exportButton" class="secondary-button">Eksportér aftaler (JSON)</button>
+      <button type="button" id="importButton" class="secondary-button">Importér aftaler (JSON)</button>
+      <input type="file" id="importFileInput" accept="application/json,.json" hidden />
+
+      <button type="button" id="helpLinkButton" class="secondary-button">Sådan bruger du appen</button>
+      <button type="button" id="clearButton" class="danger-button">Slet alle aftaler</button>
+
+      <p class="muted small" id="notificationStatusHint"></p>
+
+      <p class="muted small">Data gemmes kun i denne browser på denne enhed.</p>
+    </section>
+  </template>
+
+  <template id="help-template">
+    <section class="page-header">
+      <button type="button" class="back-button" data-route="home">← Tilbage</button>
+      <h2>Sådan bruger du appen</h2>
+    </section>
+
+    <section class="help-card">
+      <ol class="help-steps">
+        <li><strong>Se dagen</strong> — på Hjem ser du dagens dato og aftaler.</li>
+        <li><strong>Tilføj aftale</strong> — tryk Tilføj, skriv hvad, dato og tid, og Gem.</li>
+        <li><strong>Kig i kalender</strong> — tryk Kalender, vælg en dag med prik, og se aftaler.</li>
+        <li><strong>Påmindelse</strong> — vælg hvornår telefonen skal minde dig (Android-appen).</li>
+        <li><strong>Ring til Jari</strong> — tryk Ring og den store grønne/pink knap.</li>
+      </ol>
+      <p class="muted small">Tryk på en aftale for at se detaljer, rette eller slette.</p>
+    </section>
+  </template>
+
+  <template id="besked-template">
+    <section class="page-header">
+      <button type="button" class="back-button" data-route="home">← Tilbage</button>
+      <h2>Beskeder fra Jari</h2>
+      <p class="muted small" id="beskedStatus">Henter...</p>
+    </section>
+    <div id="beskedList" class="list"></div>
+  </template>
+
+  <template id="jari-send-template">
+    <section class="page-header">
+      <button type="button" class="back-button" data-route="home">← Tilbage</button>
+      <h2>Skriv til mor</h2>
+      <p>Besked popper op på mors telefon.</p>
+    </section>
+    <div class="form-card" id="jariPinSection">
+      <label>
+        <span>Jaris kode</span>
+        <input id="jariPinInput" type="number" placeholder="Skriv din kode" inputmode="numeric" autocomplete="off" />
+      </label>
+      <button type="button" class="primary-button" id="jariPinBtn">Godkend</button>
+    </div>
+    <div class="form-card" id="jariSendSection" hidden>
+      <label>
+        <span>Besked til mor</span>
+        <textarea id="jariMsgInput" placeholder="Fx: Hej mor, husk lægen i morgen kl. 10" rows="3"></textarea>
+      </label>
+      <button type="button" class="primary-button" id="jariSendBtn">Send besked ✉</button>
+      <p id="jariSendStatus" class="muted small" style="margin-top:8px"></p>
+      <hr style="margin:20px 0;border:none;border-top:1px solid #1a1a2a" />
+      <p class="muted small"><strong>Kanal-navn</strong> (del dette med mors telefon én gang):</p>
+      <p id="jariTopicDisplay" class="muted small" style="word-break:break-all;font-family:monospace;font-size:13px;padding:6px 0"></p>
+      <button type="button" class="secondary-button" id="jariCopyTopicBtn">Kopiér kanal-navn</button>
+      <button type="button" class="secondary-button" id="jariNewTopicBtn" style="margin-top:8px">Nyt kanal-navn</button>
+    </div>
+  </template>
+
+  <template id="vejr-template">
+    <section class="page-header">
+      <h2>Vejr/El</h2>
+      <p id="vejrUpdated" class="muted small">Henter data...</p>
+      <p id="vejrElNowBadge" class="muted small" hidden></p>
+    </section>
+
+    <div id="vejrLocations" class="vejr-locations" aria-live="polite">
+      <div class="vejr-loading-msg muted">Henter vejr for begge adresser...</div>
+    </div>
+
+    <section class="vejr-el-section">
+      <div class="section-title-row">
+        <h3>El-pris i dag</h3>
+        <span class="muted small">DK1 · Svendborgområdet</span>
+      </div>
+      <div id="elContent" class="vejr-el-content" aria-live="polite">
+        <div class="vejr-loading-msg muted">Henter el-priser...</div>
+      </div>
+    </section>
+  </template>
+
+  <script src="config/config.js?v=2"></script>
+  <script src="config/sync-config.js?v=2"></script>
+  <script src="js/utils.js?v=2"></script>
+  <script src="js/storage.js?v=2"></script>
+  <script src="js/sync.js?v=2"></script>
+  <script src="js/notifications.js?v=2"></script>
+  <script src="js/phone-call.js?v=2"></script>
+  <script src="js/weather.js?v=2"></script>
+  <script src="js/app.js?v=7"></script>
+</body>
+</html>

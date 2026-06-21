@@ -1,0 +1,20 @@
+# Mor Kalender Mini — Netlify deploy (publish = app-mappen)
+[build]
+  publish = "."
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+
+[[headers]]
+  for = "/sw.js"
+  [headers.values]
+    Cache-Control = "no-cache"
+
+[[headers]]
+  for = "/config/sync-config.js"
+  [headers.values]
+    Cache-Control = "no-cache"
