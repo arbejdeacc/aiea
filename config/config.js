@@ -25,5 +25,14 @@ window.MOR_CONFIG = {
   weatherLocations: [
     { id: "langeland", name: "Langeland",  address: "Botoften 5, Langeland, Danmark" },
     { id: "nyborgvej", name: "Nyborgvej",  address: "Nyborgvej 166A, Svendborg, Danmark" }
-  ]
+  ],
+  // Faste afgifter pr. kWh inkl. 25% moms — 2025/2026 DK1 (Fyn/Langeland)
+  // Opdatér med mors rigtige tal hvis du har en regning
+  elTarif: {
+    elafgift:      0.762,  // statens elafgift inkl. moms
+    systemtarif:   0.054,  // Energinet inkl. moms
+    nettarif_lav:  0.185,  // distribution, normaltime inkl. moms
+    nettarif_peak: 0.555,  // distribution, myldretid (kl. 17-21) inkl. moms
+    peakHours:     [17, 18, 19, 20]
+  }
 };

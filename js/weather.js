@@ -180,10 +180,67 @@
     }));
   }
 
+  function getElTarif() {
+    return (window.MOR_CONFIG && window.MOR_CONFIG.elTarif) || {
+      elafgift: 0.762, systemtarif: 0.054,
+      nettarif_lav: 0.185, nettarif_peak: 0.555,
+      peakHours: [17, 18, 19, 20]
+    };
+  }
+
+  function calcTotalPrice(spotInclMoms, hour) {
+    var t = getElTarif();
+    var isPeak = t.peakHours.indexOf(hour) !== -1;
+    var fixed = t.elafgift + t.systemtarif + (isPeak ? t.nettarif_peak : t.nettarif_lav);
+    return Math.max(0, spotInclMoms) + fixed;
+  }
+
+  function buildElResult(raw, now) {
+    if (!Array.isArray(raw) || raw.length === 0) throw new Error("Tom el-pris respons");
+
+    var hour = now.getHours();
+    var hours = raw
+      .map(function (entry) {
+        var h = new Date(entry.time_start).getHours();
+        var spot = typeof entry.DKK_per_kWh === "number" ? entry.DKK_per_kWh : null;
+        if (spot === null) return null;
+        return { hour: h, spot: spot, price: calcTotalPrice(spot, h) };
+      })
+      .filter(Boolean);
+
+    if (!hours.length) throw new Error("Ingen gyldige priser");
+
+    var totalPrices = hours.map(function (h) { return h.price; });
+    var currentEntry = hours.find(function (h) { return h.hour === hour; }) || hours[hours.length - 1];
+    var current  = currentEntry.price;
+    var currentSpot = currentEntry.spot;
+    var avg      = totalPrices.reduce(function (a, b) { return a + b; }, 0) / totalPrices.length;
+    var minP     = Math.min.apply(null, totalPrices);
+    var maxP     = Math.max.apply(null, totalPrices);
+    var cheapest = hours.reduce(function (a, b) { return a.price < b.price ? a : b; });
+
+    var rating = "normal";
+    if (current <= avg * 0.85) rating = "billig";
+    else if (current >= avg * 1.25) rating = "dyr";
+
+    return {
+      current:      +current.toFixed(4),
+      currentSpot:  +currentSpot.toFixed(4),
+      avg:          +avg.toFixed(4),
+      min:          +minP.toFixed(4),
+      max:          +maxP.toFixed(4),
+      cheapestHour: cheapest.hour,
+      rating:       rating,
+      hours:        hours,
+      zone:         "DK1",
+      fetchedAt:    Date.now()
+    };
+  }
+
   function fetchElPrices() {
     var now = new Date();
     var dateStr = now.toISOString().slice(0, 10);
-    var cached = cacheGet("el_" + dateStr);
+    var cached = cacheGet("el_v2_" + dateStr);
     if (cached) return Promise.resolve(cached);
 
     var y = now.getFullYear();
@@ -197,52 +254,46 @@
         return resp.json();
       })
       .then(function (raw) {
-        if (!Array.isArray(raw) || raw.length === 0) throw new Error("Tom el-pris respons");
-
-        var hour = now.getHours();
-        var hours = raw
-          .map(function (entry) {
-            var h = new Date(entry.time_start).getHours();
-            var p = typeof entry.DKK_per_kWh === "number" ? entry.DKK_per_kWh : null;
-            return p !== null ? { hour: h, price: p } : null;
-          })
-          .filter(Boolean);
-
-        if (!hours.length) throw new Error("Ingen gyldige priser");
-
-        var prices   = hours.map(function (h) { return h.price; });
-        var current  = (hours.find(function (h) { return h.hour === hour; }) || hours[hours.length - 1]).price;
-        var avg      = prices.reduce(function (a, b) { return a + b; }, 0) / prices.length;
-        var minP     = Math.min.apply(null, prices);
-        var maxP     = Math.max.apply(null, prices);
-        var cheapest = hours.reduce(function (a, b) { return a.price < b.price ? a : b; });
-
-        var rating = "normal";
-        if (current <= avg * 0.8)  rating = "billig";
-        else if (current >= avg * 1.3) rating = "dyr";
-
-        var result = {
-          current:      +current.toFixed(2),
-          avg:          +avg.toFixed(2),
-          min:          +minP.toFixed(2),
-          max:          +maxP.toFixed(2),
-          cheapestHour: cheapest.hour,
-          rating:       rating,
-          hours:        hours,
-          zone:         "DK1",
-          fetchedAt:    Date.now()
-        };
-
+        var result = buildElResult(raw, now);
         var midnight = new Date(now);
         midnight.setHours(24, 0, 0, 0);
-        cacheSet("el_" + dateStr, result, midnight.getTime() - now.getTime());
+        cacheSet("el_v2_" + dateStr, result, midnight.getTime() - now.getTime());
         return result;
       });
   }
 
+  function fetchElPricesTomorrow() {
+    var now      = new Date();
+    var tomorrow = new Date(now);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    var dateStr  = tomorrow.toISOString().slice(0, 10);
+    var cached   = cacheGet("el_tmr_v2_" + dateStr);
+    if (cached) return Promise.resolve(cached);
+
+    var y = tomorrow.getFullYear();
+    var m = String(tomorrow.getMonth() + 1).padStart(2, "0");
+    var d = String(tomorrow.getDate()).padStart(2, "0");
+    var url = "https://www.elprisenligenu.dk/api/v1/prices/" + y + "/" + m + "-" + d + "_DK1.json";
+
+    return safeFetch(url)
+      .then(function (resp) {
+        if (!resp.ok) throw new Error("HTTP " + resp.status);
+        return resp.json();
+      })
+      .then(function (raw) {
+        var result = buildElResult(raw, tomorrow);
+        result.available = true;
+        var end = new Date(tomorrow); end.setHours(27, 0, 0, 0);
+        cacheSet("el_tmr_v2_" + dateStr, result, end.getTime() - now.getTime());
+        return result;
+      })
+      .catch(function () { return { available: false }; });
+  }
+
   window.MOR_WEATHER = {
-    getWeatherForAll: getWeatherForAll,
-    fetchElPrices:    fetchElPrices,
-    LOCATIONS:        LOCATIONS
+    getWeatherForAll:       getWeatherForAll,
+    fetchElPrices:          fetchElPrices,
+    fetchElPricesTomorrow:  fetchElPricesTomorrow,
+    LOCATIONS:              LOCATIONS
   };
 })();

@@ -1,4 +1,4 @@
-const CACHE = "aiea-v1";
+const CACHE = "aiea-v4";
 const ASSETS = [
   "./",
   "./index.html",

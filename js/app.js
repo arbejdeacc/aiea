@@ -17,6 +17,7 @@ const brandTitle = document.querySelector("#brandTitle");
 const templates = {
   home: document.querySelector("#home-template"),
   vejr: document.querySelector("#vejr-template"),
+  el:   document.querySelector("#el-template"),
   add: document.querySelector("#add-template"),
   calendar: document.querySelector("#calendar-template"),
   settings: document.querySelector("#settings-template"),
@@ -132,6 +133,7 @@ function render() {
   switch (state.route) {
     case "home": renderHome(); break;
     case "vejr": renderVejr(); break;
+    case "el":   renderEl();   break;
     case "add": renderAdd(); break;
     case "calendar": renderCalendar(); break;
     case "settings": renderSettings(); break;
@@ -230,9 +232,9 @@ function loadHomeElBadge() {
     .then(function (el) {
       var priceEl = document.querySelector("#homeElPrice");
       var ratingEl = document.querySelector("#homeElRating");
-      if (priceEl) priceEl.textContent = el.current.toFixed(2) + " kr/kWh";
+      if (priceEl) priceEl.textContent = formatKr(el.current) + "/kWh";
       if (ratingEl) {
-        var labels = { billig: "Billig strøm ✓", normal: "", dyr: "⚠ Dyr strøm" };
+        var labels = { billig: "Billig ✓", normal: "", dyr: "⚠ Dyr" };
         ratingEl.textContent = labels[el.rating] || "";
         ratingEl.className = "home-el-rating--" + el.rating;
       }
@@ -240,9 +242,9 @@ function loadHomeElBadge() {
       badge.setAttribute("role", "button");
       badge.tabIndex = 0;
       var openVejr = function () { go("vejr"); };
-      badge.addEventListener("click", openVejr);
+      badge.addEventListener("click", function () { go("el"); });
       badge.addEventListener("keydown", function (e) {
-        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openVejr(); }
+        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); go("el"); }
       });
     })
     .catch(function () {
@@ -251,56 +253,347 @@ function loadHomeElBadge() {
 }
 
 function renderVejr() {
-  loadVejrPage();
+  var locContainer = document.querySelector("#vejrLocations");
+  var updatedEl    = document.querySelector("#vejrUpdated");
+  if (!locContainer || !window.MOR_WEATHER) return;
+
+  window.MOR_WEATHER.getWeatherForAll()
+    .then(function (results) {
+      locContainer.innerHTML = "";
+      if (updatedEl && results.length) {
+        var mins = Math.round((Date.now() - (results[0].fetchedAt || Date.now())) / 60000);
+        updatedEl.textContent = mins < 2 ? "Opdateret nu" : "Opdateret for " + mins + " min. siden";
+      }
+      results.forEach(function (wx) {
+        locContainer.appendChild(buildWeatherCard(wx));
+      });
+    })
+    .catch(function () {
+      locContainer.innerHTML = "";
+      var errEl = document.createElement("div");
+      errEl.className = "vejr-error";
+      errEl.textContent = "Kan ikke hente vejr. Tjek internetforbindelsen.";
+      locContainer.appendChild(errEl);
+    });
 }
 
-function loadVejrPage() {
-  var locContainer = document.querySelector("#vejrLocations");
-  var elContainer  = document.querySelector("#elContent");
-  var updatedEl    = document.querySelector("#vejrUpdated");
+function renderEl() {
+  var content   = document.querySelector("#elPageContent");
+  var updatedEl = document.querySelector("#elUpdated");
+  if (!content || !window.MOR_WEATHER) return;
 
-  if (locContainer && window.MOR_WEATHER) {
-    window.MOR_WEATHER.getWeatherForAll()
-      .then(function (results) {
-        locContainer.innerHTML = "";
-        if (updatedEl && results.length) {
-          var mins = Math.round((Date.now() - (results[0].fetchedAt || Date.now())) / 60000);
-          updatedEl.textContent = mins < 2 ? "Opdateret nu" : "Opdateret for " + mins + " min. siden";
-        }
-        results.forEach(function (wx) {
-          locContainer.appendChild(buildWeatherCard(wx));
-        });
-      })
-      .catch(function (err) {
-        console.warn("Vejr fejlede:", err);
-        locContainer.innerHTML = "";
-        var errEl = document.createElement("div");
-        errEl.className = "vejr-error";
-        errEl.textContent = "Kan ikke hente vejr lige nu. Tjek at du har internetforbindelse.";
-        locContainer.appendChild(errEl);
-      });
+  var fetchTmr = window.MOR_WEATHER.fetchElPricesTomorrow
+    ? window.MOR_WEATHER.fetchElPricesTomorrow()
+    : Promise.resolve({ available: false });
+
+  Promise.all([window.MOR_WEATHER.fetchElPrices(), fetchTmr])
+    .then(function (res) {
+      var today = res[0];
+      var tmr   = res[1];
+
+      if (updatedEl) {
+        var mins = Math.round((Date.now() - (today.fetchedAt || Date.now())) / 60000);
+        updatedEl.textContent = "DK1 · " + (mins < 2 ? "Opdateret nu" : "Opdateret for " + mins + " min siden");
+      }
+
+      content.innerHTML = "";
+      content.appendChild(buildElHeroCard(today));
+      content.appendChild(buildElFullChart(today, false));
+      content.appendChild(buildElBestWindows(today));
+
+      var nextEl = buildElNextCheap(today);
+      if (nextEl) content.appendChild(nextEl);
+
+      if (tmr && tmr.available !== false && tmr.hours && tmr.hours.length) {
+        content.appendChild(buildElTomorrowSection(tmr));
+      }
+    })
+    .catch(function () {
+      content.innerHTML = "";
+      var err = document.createElement("div");
+      err.className = "vejr-error";
+      err.textContent = "Kan ikke hente el-priser. Tjek internetforbindelsen.";
+      content.appendChild(err);
+    });
+}
+
+function buildElHeroCard(el) {
+  var card = document.createElement("div");
+  card.className = "el-hero-card";
+
+  // Stor pris
+  var priceRow = document.createElement("div");
+  priceRow.className = "el-hero-price-row";
+
+  var icon = document.createElement("span");
+  icon.className = "el-hero-icon";
+  icon.textContent = "⚡";
+
+  var priceEl = document.createElement("div");
+  priceEl.className = "el-hero-price";
+  priceEl.textContent = formatKrNum(el.current);
+
+  var unitEl = document.createElement("div");
+  unitEl.className = "el-hero-unit";
+  unitEl.innerHTML = "<span>" + formatKrUnit(el.current) + "</span><span class='muted small'>total inkl. moms</span>";
+
+  priceRow.append(icon, priceEl, unitEl);
+
+  // Rating badge
+  var ratingLabels = { billig: "✓ Billig strøm nu", normal: "Normal pris nu", dyr: "⚠ Dyr strøm nu" };
+  var badge = document.createElement("div");
+  badge.className = "vejr-el-badge vejr-el-badge--" + el.rating;
+  badge.textContent = ratingLabels[el.rating] || "Normal pris";
+
+  // Spot-pris hint (viser at markedspris kan være gratis)
+  if (el.currentSpot !== undefined) {
+    var spotHint = document.createElement("div");
+    spotHint.className = "el-spot-hint muted small";
+    spotHint.textContent = formatSpotHint(el.currentSpot);
+    card.append(priceRow, badge, spotHint);
+  } else {
+    card.append(priceRow, badge);
   }
 
-  if (elContainer && window.MOR_WEATHER) {
-    window.MOR_WEATHER.fetchElPrices()
-      .then(function (el) {
-        elContainer.innerHTML = "";
-        elContainer.appendChild(buildElCard(el));
-        var badge = document.querySelector("#vejrElNowBadge");
-        if (badge && el && el.current != null) {
-          badge.textContent = "⚡ El nu: " + Number(el.current).toFixed(2) + " kr/kWh";
-          badge.hidden = false;
-        }
-      })
-      .catch(function (err) {
-        console.warn("El-pris fejlede:", err);
-        elContainer.innerHTML = "";
-        var errEl = document.createElement("div");
-        errEl.className = "vejr-error";
-        errEl.textContent = "Kan ikke hente el-priser lige nu. Prøv igen om lidt.";
-        elContainer.appendChild(errEl);
-      });
+  // Stats: laveste / snit / højeste (totalpris)
+  var statsRow = document.createElement("div");
+  statsRow.className = "el-hero-stats";
+
+  function mkStat(lbl, val, cls) {
+    var box = document.createElement("div");
+    box.className = "el-stat-box";
+    var l = document.createElement("div"); l.className = "el-stat-label"; l.textContent = lbl;
+    var v = document.createElement("div"); v.className = "el-stat-value" + (cls ? " " + cls : ""); v.textContent = val;
+    box.append(l, v);
+    return box;
   }
+
+  statsRow.append(
+    mkStat("Laveste i dag", formatKr(el.min), "el-color-cheap"),
+    mkStat("Snit i dag",    formatKr(el.avg), ""),
+    mkStat("Højeste i dag", formatKr(el.max), "el-color-dyr")
+  );
+
+  card.appendChild(statsRow);
+  return card;
+}
+
+function buildElFullChart(el, isTomorrow) {
+  var section = document.createElement("div");
+  section.className = "el-chart-section";
+
+  var titleEl = document.createElement("div");
+  titleEl.className = "el-chart-title";
+  titleEl.textContent = isTomorrow ? "I morgen – time for time" : "I dag – time for time";
+  section.appendChild(titleEl);
+
+  var nowHour = isTomorrow ? -1 : new Date().getHours();
+  var sorted  = el.hours.slice().sort(function (a, b) { return a.hour - b.hour; });
+  var maxP    = Math.max.apply(null, sorted.map(function (h) { return h.price; }));
+
+  var wrap = document.createElement("div");
+  wrap.className = "el-chart-full-wrap";
+
+  var barsRow = document.createElement("div");
+  barsRow.className = "el-chart-bars-row";
+
+  sorted.forEach(function (h) {
+    var col = document.createElement("div");
+    col.className = "el-bar-col";
+    var bar = document.createElement("div");
+    bar.className = "el-bar-full";
+    bar.style.height = (maxP > 0 ? Math.max(5, Math.round((h.price / maxP) * 100)) : 10) + "%";
+    if (h.hour === nowHour)              bar.classList.add("current");
+    else if (h.price <= el.avg * 0.85)   bar.classList.add("cheap");
+    else if (h.price >= el.avg * 1.3)    bar.classList.add("expensive");
+    col.appendChild(bar);
+    barsRow.appendChild(col);
+  });
+
+  var labelsRow = document.createElement("div");
+  labelsRow.className = "el-chart-labels-row";
+  for (var i = 0; i < 24; i++) {
+    var lbl = document.createElement("div");
+    lbl.className = "el-chart-hour-lbl";
+    if (i === 0 || i === 6 || i === 12 || i === 18 || i === 23) lbl.textContent = padHour(i);
+    labelsRow.appendChild(lbl);
+  }
+
+  var legend = document.createElement("div");
+  legend.className = "el-chart-legend";
+  legend.innerHTML =
+    '<span class="el-legend-dot cheap"></span> Billig &nbsp;' +
+    '<span class="el-legend-dot normal"></span> Normal &nbsp;' +
+    '<span class="el-legend-dot expensive"></span> Dyr' +
+    (isTomorrow ? '' : ' &nbsp;<span class="el-legend-dot current"></span> Nu');
+
+  wrap.append(barsRow, labelsRow, legend);
+  section.appendChild(wrap);
+  return section;
+}
+
+function getBestWindows(hours, avg) {
+  var sorted = hours.slice().sort(function (a, b) { return a.hour - b.hour; });
+  var windows = [];
+  var i = 0;
+  while (i < sorted.length) {
+    if (sorted[i].price <= avg * 0.88) {
+      var start = i;
+      var chunk = [];
+      while (i < sorted.length && sorted[i].price <= avg * 0.88) { chunk.push(sorted[i]); i++; }
+      var wAvg = chunk.reduce(function (s, h) { return s + h.price; }, 0) / chunk.length;
+      windows.push({ startHour: chunk[0].hour, endHour: chunk[chunk.length - 1].hour, length: chunk.length, avg: wAvg });
+    } else { i++; }
+  }
+  windows.sort(function (a, b) { return a.avg - b.avg; });
+  return windows.slice(0, 3);
+}
+
+function buildElBestWindows(el) {
+  var section = document.createElement("div");
+  section.className = "el-section";
+
+  var row = document.createElement("div");
+  row.className = "section-title-row";
+  var h3 = document.createElement("h3");
+  h3.textContent = "🧺 Bedste tidspunkter";
+  row.appendChild(h3);
+  section.appendChild(row);
+
+  var sub = document.createElement("p");
+  sub.className = "muted small";
+  sub.style.marginBottom = "12px";
+  sub.textContent = "Billigst at køre vaskemaskine, opvasker eller lade telefon:";
+  section.appendChild(sub);
+
+  var windows = getBestWindows(el.hours, el.avg);
+  var nowHour = new Date().getHours();
+
+  if (!windows.length) {
+    var nope = document.createElement("p");
+    nope.className = "muted small";
+    nope.textContent = "Ingen særligt billige perioder i dag.";
+    section.appendChild(nope);
+    return section;
+  }
+
+  var list = document.createElement("div");
+  list.className = "el-windows-list";
+
+  windows.forEach(function (w, idx) {
+    var card = document.createElement("div");
+    card.className = "el-window-card";
+    var isNow  = w.startHour <= nowHour && w.endHour >= nowHour;
+    var isPast = w.endHour < nowHour;
+    if (isNow)  card.classList.add("el-window-now");
+    if (isPast) card.classList.add("el-window-past");
+
+    var medals = ["🥇", "🥈", "🥉"];
+    var timeStr = "kl. " + padHour(w.startHour) + ":00";
+    if (w.length > 1) timeStr += " – " + padHour(w.endHour + 1) + ":00";
+
+    var left = document.createElement("div");
+    var timeEl = document.createElement("div");
+    timeEl.className = "el-window-time";
+    timeEl.textContent = (medals[idx] || "") + " " + timeStr;
+    var durEl = document.createElement("div");
+    durEl.className = "muted small";
+    durEl.textContent = (w.length === 1 ? "1 time" : w.length + " timer") +
+      (isNow ? " · nu" : isPast ? " · forbi" : "");
+    left.append(timeEl, durEl);
+
+    var right = document.createElement("div");
+    right.className = "el-window-price-big";
+    right.textContent = formatKr(w.avg);
+
+    card.append(left, right);
+    list.appendChild(card);
+  });
+
+  section.appendChild(list);
+  return section;
+}
+
+function buildElNextCheap(el) {
+  var nowHour = new Date().getHours();
+  var next = el.hours.slice().sort(function (a, b) { return a.hour - b.hour; })
+    .find(function (h) { return h.hour > nowHour && h.price <= el.avg * 0.88; });
+  if (!next) return null;
+
+  var div = document.createElement("div");
+  div.className = "el-next-cheap";
+  var hoursUntil = next.hour - nowHour;
+  div.innerHTML =
+    '<span class="el-next-icon">⏰</span>' +
+    '<div><div class="el-next-title">Næste billige strøm</div>' +
+    '<div class="muted small">kl. ' + padHour(next.hour) + ':00 · om ' +
+    hoursUntil + (hoursUntil === 1 ? " time" : " timer") + ' · ' +
+    formatKr(next.price) + '/kWh</div></div>';
+  return div;
+}
+
+function buildElTomorrowSection(tmr) {
+  var section = document.createElement("div");
+  section.className = "el-section el-tomorrow-section";
+
+  var row = document.createElement("div");
+  row.className = "section-title-row";
+  var h3 = document.createElement("h3");
+  h3.textContent = "I morgen";
+  row.appendChild(h3);
+  section.appendChild(row);
+
+  var statsRow = document.createElement("div");
+  statsRow.className = "el-hero-stats";
+  statsRow.style.marginBottom = "12px";
+
+  function mkStat(lbl, val, cls) {
+    var box = document.createElement("div");
+    box.className = "el-stat-box";
+    var l = document.createElement("div"); l.className = "el-stat-label"; l.textContent = lbl;
+    var v = document.createElement("div"); v.className = "el-stat-value" + (cls ? " " + cls : ""); v.textContent = val;
+    box.append(l, v); return box;
+  }
+  statsRow.append(
+    mkStat("Laveste", formatKr(tmr.min), "el-color-cheap"),
+    mkStat("Snit",    formatKr(tmr.avg), ""),
+    mkStat("Højeste", formatKr(tmr.max), "el-color-dyr")
+  );
+  section.appendChild(statsRow);
+  section.appendChild(buildElFullChart(tmr, true));
+
+  var cheapEntry = tmr.hours.reduce(function (a, b) { return a.price < b.price ? a : b; });
+  var hint = document.createElement("p");
+  hint.className = "muted small";
+  hint.style.marginTop = "8px";
+  hint.textContent = "⚡ Billigst i morgen: kl. " + padHour(tmr.cheapestHour) + ":00 · " + formatKr(cheapEntry.price) + "/kWh";
+  section.appendChild(hint);
+  return section;
+}
+
+function padHour(h) { return String(h).padStart(2, "0"); }
+
+function formatKr(price) {
+  if (price <= 0) return "0 øre";
+  if (price >= 1.0) {
+    return price.toLocaleString("da-DK", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " kr";
+  }
+  return Math.round(price * 100) + " øre";
+}
+
+function formatKrNum(price) {
+  if (price >= 1.0) return price.toLocaleString("da-DK", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return Math.round(price * 100) + "";
+}
+
+function formatKrUnit(price) {
+  return price >= 1.0 ? "kr/kWh" : "øre/kWh";
+}
+
+function formatSpotHint(spot) {
+  if (spot <= 0.001) return "☀️ Markedspris: gratis nu (sol-strøm)";
+  if (spot < 0.10)  return "☀️ Markedspris: " + formatKr(spot) + "/kWh";
+  return "Markedspris: " + formatKr(spot) + "/kWh";
 }
 
 function buildWeatherCard(wx) {

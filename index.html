@@ -32,9 +32,9 @@
 
     <nav class="bottom-nav" aria-label="Navigation">
       <button type="button" data-route="home" class="nav-btn active">⌂<span>Hjem</span></button>
-      <button type="button" data-route="vejr" class="nav-btn">⛅<span>Vejr/El</span></button>
+      <button type="button" data-route="vejr" class="nav-btn">⛅<span>Vejr</span></button>
+      <button type="button" data-route="el" class="nav-btn">⚡<span>El-pris</span></button>
       <button type="button" data-route="calendar" class="nav-btn">▦<span>Kalender</span></button>
-      <button type="button" data-route="add" class="nav-btn nav-add">＋<span>Tilføj</span></button>
     </nav>
   </div>
 
@@ -293,34 +293,33 @@
 
   <template id="vejr-template">
     <section class="page-header">
-      <h2>Vejr/El</h2>
-      <p id="vejrUpdated" class="muted small">Henter data...</p>
-      <p id="vejrElNowBadge" class="muted small" hidden></p>
+      <h2>Vejr</h2>
+      <p id="vejrUpdated" class="muted small">Henter vejr...</p>
     </section>
 
     <div id="vejrLocations" class="vejr-locations" aria-live="polite">
       <div class="vejr-loading-msg muted">Henter vejr for begge adresser...</div>
     </div>
-
-    <section class="vejr-el-section">
-      <div class="section-title-row">
-        <h3>El-pris i dag</h3>
-        <span class="muted small">DK1 · Svendborgområdet</span>
-      </div>
-      <div id="elContent" class="vejr-el-content" aria-live="polite">
-        <div class="vejr-loading-msg muted">Henter el-priser...</div>
-      </div>
-    </section>
   </template>
 
-  <script src="config/config.js?v=2"></script>
-  <script src="config/sync-config.js?v=2"></script>
-  <script src="js/utils.js?v=2"></script>
-  <script src="js/storage.js?v=2"></script>
-  <script src="js/sync.js?v=2"></script>
-  <script src="js/notifications.js?v=2"></script>
-  <script src="js/phone-call.js?v=2"></script>
-  <script src="js/weather.js?v=2"></script>
-  <script src="js/app.js?v=8"></script>
+  <template id="el-template">
+    <section class="page-header">
+      <h2>⚡ El-priser</h2>
+      <p id="elUpdated" class="muted small">Henter priser...</p>
+    </section>
+    <div id="elPageContent" aria-live="polite">
+      <div class="vejr-loading-msg muted">Henter el-priser...</div>
+    </div>
+  </template>
+
+  <script src="config/config.js?v=3"></script>
+  <script src="config/sync-config.js?v=3"></script>
+  <script src="js/utils.js?v=3"></script>
+  <script src="js/storage.js?v=3"></script>
+  <script src="js/sync.js?v=3"></script>
+  <script src="js/notifications.js?v=3"></script>
+  <script src="js/phone-call.js?v=3"></script>
+  <script src="js/weather.js?v=3"></script>
+  <script src="js/app.js?v=9"></script>
 </body>
 </html>
