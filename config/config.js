@@ -8,6 +8,8 @@ window.MOR_CONFIG = {
   contactName: "Jari",
   /** Tom streng = vis venlig besked. Sæt kun på Jaris enhed. */
   jariPhone: "",
+  /** Fast ntfy-kanal — bruges til beskeder fra Jari til mor */
+  ntfyTopic: "aiea-jari-til-mor-8842",
   storageKey: "mor_kalender_mini_v1_appointments",
   settingsKeys: {
     largeText: "mor_kalender_large_text",

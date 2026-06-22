@@ -1160,13 +1160,12 @@ function applyThemeAndText() {
   if (meta) meta.setAttribute("content", colors.theme);
 }
 
+function ntfyDefaultTopic() {
+  return (window.MOR_CONFIG && window.MOR_CONFIG.ntfyTopic) || "aiea-jari-til-mor-8842";
+}
+
 function ntfyGetTopic() {
-  var t = localStorage.getItem("aiea_ntfy_topic");
-  if (!t) {
-    t = "aiea-" + Math.random().toString(36).substring(2, 10);
-    localStorage.setItem("aiea_ntfy_topic", t);
-  }
-  return t;
+  return localStorage.getItem("aiea_ntfy_topic") || ntfyDefaultTopic();
 }
 
 function ntfyPlaySound() {
@@ -1196,35 +1195,7 @@ function ntfyFormatTime(unixSec) {
 function renderBesked() {
   var list = document.querySelector("#beskedList");
   var statusEl = document.querySelector("#beskedStatus");
-  var topic = localStorage.getItem("aiea_ntfy_jari_topic") || "";
-
-  if (!topic) {
-    if (statusEl) statusEl.textContent = "";
-    if (list) {
-      list.innerHTML = "";
-      var setupCard = document.createElement("div");
-      setupCard.style.cssText = "background:var(--card-bg,#1a1a2a);border-radius:12px;padding:18px 16px";
-      setupCard.innerHTML = '<p style="margin:0 0 10px;font-weight:500">Opsætning</p>' +
-        '<p style="margin:0 0 12px;font-size:14px;opacity:0.7">Spørg Jari om hans kanal-navn og skriv det herunder. Det gøres kun én gang.</p>';
-      var inp = document.createElement("input");
-      inp.placeholder = "Kanal-navn fra Jari";
-      inp.style.cssText = "width:100%;box-sizing:border-box;margin-bottom:10px";
-      var btn = document.createElement("button");
-      btn.className = "primary-button";
-      btn.textContent = "Gem kanal-navn";
-      btn.type = "button";
-      btn.addEventListener("click", function() {
-        var val = inp.value.trim();
-        if (!val) return;
-        localStorage.setItem("aiea_ntfy_jari_topic", val);
-        renderBesked();
-      });
-      setupCard.appendChild(inp);
-      setupCard.appendChild(btn);
-      list.appendChild(setupCard);
-    }
-    return;
-  }
+  var topic = localStorage.getItem("aiea_ntfy_jari_topic") || ntfyDefaultTopic();
 
   var stored = [];
   try { stored = JSON.parse(localStorage.getItem("aiea_ntfy_messages") || "[]"); } catch (e) {}
